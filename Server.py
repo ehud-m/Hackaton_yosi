@@ -24,7 +24,7 @@ class Server():
         self.event_udp = threading.Event()
         self.event_tcp = threading.Event()
         self.event_two_players = threading.Event()
-        self.event_reset_game = threading.Event()
+        self.event_end_game = threading.Event()
         self.reset_game()
         self.score_dictionary = Counter()
         self.broadcast_port = broadcast_port
@@ -45,7 +45,7 @@ class Server():
         self.winner = None
         self.event_udp.clear()
         self.event_two_players.clear()
-
+        self.players_ended_game=0
 
 
     def create_broadcast_socket(self):
@@ -102,7 +102,7 @@ class Server():
 
         #two players
         time.sleep(3)
-        connection.settimeout(5)
+        connection.settimeout(15)
         stoper = time.time()
         connection.send(bytes(f"{colorama.Fore.YELLOW}Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
@@ -123,24 +123,21 @@ class Server():
                     self.got_answer_from_client = 2 #means wrong answer
                     self.score_dictionary[name] += - self.score
                     self.winner = self.find_winner(name)
-                self.event_two_players.clear()
                 self.game_lock.release()
-                self.event_two_players.wait()
             else:
                 if self.got_answer_from_client == 2:
                     self.score_dictionary[name] += self.score
                 else:
                     self.score_dictionary[name] += - self.score
                 self.game_lock.release()
-                self.event_two_players.set()
+                self.event_udp.set()
 
             connection.send(bytes(f"{colorama.Fore.BLUE}Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
         except socket.timeout:
             connection.send(
                 bytes(f"{colorama.Fore.BLUE}Game over!\nThe correct answer was 4! \n\n Nobody won you losers!!!", "UTF-8"))
         connection.close()
-        self.event_udp.set()
-        self.event_reset_game.clear()
+
 
 
     def find_winner(self,name):
@@ -154,7 +151,7 @@ class Server():
     def equation_generator(self):
         return "2+2","4"
 
-s = Server("127.0.0.1",2500,broadcast_port=2000)
+s = Server("127.0.0.1",2501,broadcast_port=2000)
 
 
 

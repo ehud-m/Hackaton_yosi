@@ -41,7 +41,10 @@ class Client:
     def play(self):
         print(self.tcp_socket.recv(1024).decode("utf-8"))
         answer = keyboard.read_key()
-        self.tcp_socket.send(bytes(answer,"utf-8"))
+        try:
+            self.tcp_socket.send(bytes(answer,"utf-8"))
+        except ConnectionAbortedError:
+            print("FOOOOOOOOOLLLLLLLL!!!!!")
         print(self.tcp_socket.recv(1024).decode("utf-8"))
         print(f"{colorama.Fore.GREEN}Server disconnected, listening for offer requests...")
         self.tcp_socket.close()
