@@ -2,7 +2,7 @@ import struct
 
 import scapy
 import socket
-
+import keyboard
 
 class Client:
     def __init__(self, ip_address, port, team_name):
@@ -27,9 +27,11 @@ class Client:
         print(address[0])
         self.tcp_socket.connect(('127.0.0.1', server_port))
         self.tcp_socket.send(bytes(self.team_name + "\n","utf-8"))
-    #     self.play()
-    #
-    # def play(self):
+        self.play()
 
+    def play(self):
+        print(self.tcp_socket.recv(1024).decode("utf-8"))
+        answer = keyboard.read_key()
+        self.tcp_socket.send(bytes(answer,"utf-8"))
 
 s = Client(1, 13117, "Yuri")
