@@ -71,7 +71,7 @@ class Client:
         try:
             self.tcp_socket.close()
         except:
-            None
+            pass
 
 
-s = Client( 13117, "win")
+s = Client( 13117, "t8")

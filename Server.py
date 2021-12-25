@@ -20,7 +20,7 @@ WAIT_FOR_GAME_LENGTH = 3
 NO_ANSWER_YET = 0
 FIRST_ANSWER_IS_RIGHT = 1
 FIRST_ANSWER_IS_WRONG = 2
-TCP_PORT = 2501
+TCP_PORT = 2507
 
 
 class Server():
@@ -28,8 +28,7 @@ class Server():
         self.ip = ip_address
         print(ip_address)
         print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
-        self.integer_lock = threading.Lock()  # lock for number_of_clients
-        self.game_lock = threading.Lock()  # lock for recoginize the first player to answer
+
         self.event_udp = threading.Event()  # wait's untill game is over to broadcast again
         self.event_two_players = threading.Event()  # tell's when 2 players are ready to play
         self.event_score_updater = threading.Event() #to update score dict
@@ -51,9 +50,13 @@ class Server():
         self.number_of_clients = 0
         self.score = 0
         self.winner = None
+        self.disconnected_flag = False
+        self.flag_lock = threading.Lock()
         self.event_udp.clear()
         self.event_two_players.clear()
         self.event_score_updater.clear()
+        self.integer_lock = threading.Lock()  # lock for number_of_clients
+        self.game_lock = threading.Lock()  # lock for recoginize the first player to answer
 
     def equation_generator(self):
         """
@@ -126,21 +129,41 @@ class Server():
         handle one player of equation game
         :param connection: tcp connection
         """
-        team_name = connection.recv(MAXIMUM_MESSAGE_SIZE).decode("UTF-8")
-        self.set_name(team_name)
-        self.wait_for_two_players(connection)
-        stopper = time.time()  # for computing answer response time
         try:
-            answer = connection.recv(1024).decode("utf-8")
-            self.game_lock.acquire() #let only the first to response check if he won
-            if self.game_status == NO_ANSWER_YET:
-                self.first_to_answer(stopper, answer, team_name)
+            team_name = connection.recv(MAXIMUM_MESSAGE_SIZE).decode("UTF-8")
+            self.set_name(team_name)
+            self.wait_for_two_players(connection)
+            stopper = time.time()  # for computing answer response time
+            try:
+                answer = connection.recv(1024).decode("utf-8")
+                self.game_lock.acquire() #let only the first to response check if he won
+                if self.game_status == NO_ANSWER_YET:
+                    self.first_to_answer(stopper, answer, team_name)
+                else:
+                    self.second_to_answer(team_name)
+                connection.send(bytes(self.generate_winner_message(team_name), "UTF-8"))
+            except socket.timeout: #means the game ended in a draw - no one have answered
+                connection.send(bytes(self.generate_draw_message(team_name), "UTF-8"))
+            connection.close()
+        except ConnectionResetError:
+            self.integer_lock.acquire()
+            if (self.number_of_clients == 1):
+                print("here")
+                self.number_of_clients -= 1
+                self.current_clients_names = []
+                self.event_two_players.set()
+                self.integer_lock.release() ####maybe thats not good and we dont need to realse
+                # self.reset_game()
+                return
             else:
-                self.second_to_answer(team_name)
-            connection.send(bytes(self.generate_winner_message(team_name), "UTF-8"))
-        except socket.timeout: #means the game ended in a draw - no one have answered
-            connection.send(bytes(self.generate_draw_message(team_name), "UTF-8"))
-        connection.close()
+                print("hereeeee")
+                self.flag_lock.acquire()
+                self.disconnected_flag = True
+                self.flag_lock.release()
+                self.number_of_clients -= 1
+                self.integer_lock.release()
+                self.event_score_updater.set()
+                return
 
     def set_name(self, team_name):
         """
@@ -162,6 +185,7 @@ class Server():
         if self.number_of_clients < NUMBER_OF_CLIENTS_IN_GAME:
             self.integer_lock.release()
             self.event_two_players.wait()
+            print("waked")
         else:
             self.integer_lock.release()
             self.event_two_players.set()
@@ -191,7 +215,15 @@ class Server():
             self.score_dictionary[team_name] += - self.score
             self.winner = self.find_winner(team_name) #returns other team name
         self.game_lock.release() #let the second player to enter the critical section
-        self.event_score_updater.wait() #when the first done updating scores, let the second update also
+        self.flag_lock.acquire()
+        if self.flag_lock: #means one player have disconected
+            self.flag_lock.release()
+            self.event_udp.set()
+        else:
+            self.flag_lock.release()
+            self.event_score_updater.wait() #when the first done updating scores, let the second update also
+            if self.number_of_clients == 1: #means one player have disconected
+                self.event_udp.set()
 
     def find_winner(self, team_name):
         """
@@ -222,8 +254,10 @@ class Server():
         return result+self.generate_statistics(team_name)
 
     def generate_statistics(self, team_name):
-        result = f"Your score until now: {self.score_dictionary[team_name]}"
-        result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key =self.score_dictionary.get)}"
+        result = ""
+        if not len(self.score_dictionary.keys()) == 0:
+            result = f"Your score until now: {self.score_dictionary[team_name]}"
+            result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key =self.score_dictionary.get)}"
         return result
 
     def generate_draw_message(self, team_name):
