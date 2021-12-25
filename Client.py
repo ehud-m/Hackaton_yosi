@@ -74,4 +74,4 @@ class Client:
             None
 
 
-s = Client( 13117, "yuri4")
+s = Client( 13117, "win")

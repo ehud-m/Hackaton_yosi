@@ -32,6 +32,7 @@ class Server():
         self.game_lock = threading.Lock()  # lock for recoginize the first player to answer
         self.event_udp = threading.Event()  # wait's untill game is over to broadcast again
         self.event_two_players = threading.Event()  # tell's when 2 players are ready to play
+        self.event_score_updater = threading.Event() #to update score dict
         self.reset_game()
         self.score_dictionary = Counter()  # It saves the all time's scores.
         self.destination_port = destination_port
@@ -52,6 +53,7 @@ class Server():
         self.winner = None
         self.event_udp.clear()
         self.event_two_players.clear()
+        self.event_score_updater.clear()
 
     def equation_generator(self):
         """
@@ -187,8 +189,9 @@ class Server():
         else:
             self.game_status = FIRST_ANSWER_IS_WRONG  # means the team that responsed first lost
             self.score_dictionary[team_name] += - self.score
-            self.winner = self.find_winner(team_name)
+            self.winner = self.find_winner(team_name) #returns other team name
         self.game_lock.release() #let the second player to enter the critical section
+        self.event_score_updater.wait() #when the first done updating scores, let the second update also
 
     def find_winner(self, team_name):
         """
@@ -196,7 +199,7 @@ class Server():
         :return: the winner team name which is the second team name
         """
         winner = [n for n in self.current_clients_names if not n == team_name]
-        if len(winner) == 0:
+        if not len(winner)  == 0:
             return self.current_clients_names[0]
         return winner[0]
 
@@ -210,7 +213,9 @@ class Server():
         else:
             self.score_dictionary[team_name] += - self.score
         self.game_lock.release()
-        self.event_udp.set()
+        self.event_udp.set() #wake up broadcast
+        self.event_score_updater.set() #means the second done updating his score
+
 
     def generate_winner_message(self, team_name):
         result = f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}! \n\n Congratulations for the winner: {self.winner}\n"
@@ -218,7 +223,7 @@ class Server():
 
     def generate_statistics(self, team_name):
         result = f"Your score until now: {self.score_dictionary[team_name]}"
-        result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key = lambda k: self.score_dictionary[k])}"
+        result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key =self.score_dictionary.get)}"
         return result
 
     def generate_draw_message(self, team_name):
