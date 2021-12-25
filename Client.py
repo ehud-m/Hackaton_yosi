@@ -17,9 +17,10 @@ class Client:
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.udp_socket.bind(("", self.port))
-        message, address = self.udp_socket.recvfrom(1024)
-        print(f"Received offer from {address[0]},attempting to connect...")
-        self.connect(message, address)
+        while True:
+            message, address = self.udp_socket.recvfrom(1024)
+            print(f"Received offer from {address[0]},attempting to connect...")
+            self.connect(message, address)
 
     def connect(self, message, address):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,5 +34,8 @@ class Client:
         print(self.tcp_socket.recv(1024).decode("utf-8"))
         answer = keyboard.read_key()
         self.tcp_socket.send(bytes(answer,"utf-8"))
+        print(self.tcp_socket.recv(1024).decode("utf-8"))
+        print("Server disconnected, listening for offer requests...")
+
 
 s = Client(1, 13117, "Yuri")

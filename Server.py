@@ -1,5 +1,5 @@
 import struct
-from collections import defaultdict
+from collections import Counter
 
 import scapy
 import socket
@@ -19,25 +19,28 @@ class Server():
         self.ip = ip_address
         print(ip_address)
         print(f"Server started, listening on IP address {self.ip}")
+        self.game_lock = threading.Lock()
+        self.event_udp = threading.Event()
+        self.event_tcp = threading.Event()
         self.reset_game()
-        self.score_dictionary = defaultdict()
+        self.score_dictionary = Counter()
         self.broadcast_port = broadcast_port
         self.destination_port = destination_port
         self.tcp_port = tcp_port
         self.integer_lock = threading.Lock()
-        self.game_lock = threading.Lock()
-        self.event_udp = threading.Event()
-        self.event_tcp = threading.Event()
         self.event_two_players = threading.Event()
         thread = threading.Thread(target=self.create_broadcast_socket)
         thread.start()
         self.create_tcp_listening_socket()
 
     def reset_game(self):
-        self.equation, self.equation_answer = self.equation()
+        self.equation, self.equation_answer = self.equation_generator()
         self.current_clients_names = []
-        self.got_answer_from_client = False
+        self.got_answer_from_client = 0
         self.number_of_clients = 0
+        self.score = 0
+        self.winner = None
+        self.event_udp.clear()
 
 
     def create_broadcast_socket(self):
@@ -56,6 +59,8 @@ class Server():
             time.sleep(1)
             if self.number_of_clients >= 2:
                 self.event_udp.wait()
+                self.reset_game()
+                print("Game over, sending out offer requests...")
 
     def create_tcp_listening_socket(self):
         self.tcp_listener = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -93,18 +98,43 @@ class Server():
             self.integer_lock.release()
             self.event_two_players.set()
         #two players
-        time.sleep(10)
+        time.sleep(3)
+        stoper = time.time()
         connection.send(bytes(f"Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
                               f"Player2: {self.current_clients_names[1]}\n==\n"
                               f"Pleases answer the following question as fast as ypu can:\n"
-                              f"How much is {self.equation}?"))
+                              f"How much is {self.equation}?","UTF-8"))
         answer=connection.recv(1024).decode("utf-8")
+        self.game_lock.acquire()
+        if self.got_answer_from_client == 0:
+            self.score = 10 - (time.time() - stoper)
+            self.got_answer_from_client = name
+            if answer == self.equation_answer:
+                self.score_dictionary[name] += self.score
+                self.winner = name
+            else:
+                self.got_answer_from_client = 1
+                self.score_dictionary[name] += - self.score
+                self.winner = self.find_winner(name)
+        elif self.got_answer_from_client == 1:
+            self.score_dictionary[name] += self.score
+        else:
+            self.score_dictionary[name] += - self.score
+        self.game_lock.release()
+
+        connection.send(bytes(f"Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
+        connection.close()
+        self.event_udp.set()
+
+
+    def find_winner(self,name):
+        return [n for n in self.current_clients_names if not n == name][0]
 
 
 
-    def equation(self):
-        return "2+2"
+    def equation_generator(self):
+        return "2+2","4"
 
 s = Server("127.0.0.1",2500,broadcast_port=2000)
 
