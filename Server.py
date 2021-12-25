@@ -20,7 +20,7 @@ WAIT_FOR_GAME_LENGTH = 3
 NO_ANSWER_YET = 0
 FIRST_ANSWER_IS_RIGHT = 1
 FIRST_ANSWER_IS_WRONG = 2
-TCP_PORT = 2501
+TCP_PORT = 2510
 
 
 class Server():
@@ -121,7 +121,7 @@ class Server():
 
     #######################################################################################################################
 
-    def handle_client(self, connection):
+    def h3andle_client(self, connection):
         """
         handle one player of equation game
         :param connection: tcp connection
@@ -140,6 +140,8 @@ class Server():
             connection.send(bytes(self.generate_winner_message(team_name), "UTF-8"))
         except socket.timeout: #means the game ended in a draw - no one have answered
             connection.send(bytes(self.generate_draw_message(team_name), "UTF-8"))
+            if self.current_clients_names[0] == team_name:
+                self.event_udp.set()
         connection.close()
 
     def set_name(self, team_name):
@@ -222,8 +224,11 @@ class Server():
         return result+self.generate_statistics(team_name)
 
     def generate_statistics(self, team_name):
-        result = f"Your score until now: {self.score_dictionary[team_name]}"
-        result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key =self.score_dictionary.get)}"
+        result = ""
+        print("here")
+        if not len(self.score_dictionary.keys()) == 0:
+            result = f"Your score until now: {self.score_dictionary[team_name]}"
+            result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key =self.score_dictionary.get)}"
         return result
 
     def generate_draw_message(self, team_name):
