@@ -19,16 +19,18 @@ class Server():
         self.ip = ip_address
         print(ip_address)
         print(f"Server started, listening on IP address {self.ip}")
+        self.integer_lock = threading.Lock()
         self.game_lock = threading.Lock()
         self.event_udp = threading.Event()
         self.event_tcp = threading.Event()
+        self.event_two_players = threading.Event()
         self.reset_game()
         self.score_dictionary = Counter()
         self.broadcast_port = broadcast_port
         self.destination_port = destination_port
         self.tcp_port = tcp_port
-        self.integer_lock = threading.Lock()
-        self.event_two_players = threading.Event()
+
+
         thread = threading.Thread(target=self.create_broadcast_socket)
         thread.start()
         self.create_tcp_listening_socket()
@@ -41,6 +43,7 @@ class Server():
         self.score = 0
         self.winner = None
         self.event_udp.clear()
+        self.event_two_players.clear()
 
 
     def create_broadcast_socket(self):
@@ -97,34 +100,46 @@ class Server():
         else:
             self.integer_lock.release()
             self.event_two_players.set()
+
         #two players
         time.sleep(3)
+        connection.settimeout(5)
         stoper = time.time()
         connection.send(bytes(f"Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
                               f"Player2: {self.current_clients_names[1]}\n==\n"
                               f"Pleases answer the following question as fast as ypu can:\n"
                               f"How much is {self.equation}?","UTF-8"))
-        answer=connection.recv(1024).decode("utf-8")
-        self.game_lock.acquire()
-        if self.got_answer_from_client == 0:
-            self.score = 10 - (time.time() - stoper)
+        try:
+            answer=connection.recv(1024).decode("utf-8")
+            self.game_lock.acquire()
+            if self.got_answer_from_client == 0:
+                self.score = 10 - (time.time() - stoper)
 
-            if answer == self.equation_answer:
-                self.got_answer_from_client = 1
-                self.score_dictionary[name] += self.score
-                self.winner = name
+                if answer == self.equation_answer:
+                    self.got_answer_from_client = 1
+                    self.score_dictionary[name] += self.score
+                    self.winner = name
+                else:
+                    self.got_answer_from_client = 2 #means wrong answer
+                    self.score_dictionary[name] += - self.score
+                    self.winner = self.find_winner(name)
+                self.event_two_players.clear()
+                self.game_lock.release()
+                self.event_two_players.wait()
             else:
-                self.got_answer_from_client = 2 #means wrong answer
-                self.score_dictionary[name] += - self.score
-                self.winner = self.find_winner(name)
-        elif self.got_answer_from_client == 2:
-            self.score_dictionary[name] += self.score
-        else:
-            self.score_dictionary[name] += - self.score
-        self.game_lock.release()
+                if self.got_answer_from_client == 2:
+                    self.score_dictionary[name] += self.score
+                else:
+                    self.score_dictionary[name] += - self.score
+                self.game_lock.release()
+                self.event_two_players.set()
 
-        connection.send(bytes(f"Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
+            connection.send(bytes(f"Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
+        except socket.timeout:
+            connection.send(
+                bytes(f"Game over!\nThe correct answer was 4! \n\n Nobody won you losers!!!",
+                      "UTF-8"))
         connection.close()
         self.event_udp.set()
 

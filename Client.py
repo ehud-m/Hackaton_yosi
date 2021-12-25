@@ -1,6 +1,4 @@
 import struct
-
-import scapy
 import socket
 import keyboard
 
@@ -38,4 +36,4 @@ class Client:
         print("Server disconnected, listening for offer requests...")
 
 
-s = Client(1, 13117, "Yuri1")
+s = Client(1, 13117, "Yuri400")
