@@ -62,14 +62,11 @@ class Client:
         print(self.tcp_socket.recv(1024).decode("utf-8"))
 
         answer = keyboard.read_key()
-        try:
-            self.tcp_socket.send(bytes(answer, "utf-8"))
-        except ConnectionAbortedError:
-            print("FOOOOOOOOOLLLLLLLL!!!!!")
-        try:
-            print(self.tcp_socket.recv(1024).decode("utf-8"))
-        except:
-            print(f"{colorama.Fore.RED}Server sends bad args, lets continue")
+        self.tcp_socket.send(bytes(answer, "utf-8"))
+        #try:
+        print(self.tcp_socket.recv(1024).decode("utf-8"))
+        #except:
+            #print(f"{colorama.Fore.RED}Server sends bad args, lets continue")
         print(f"{colorama.Fore.GREEN}Server disconnected, listening for offer requests...")
         try:
             self.tcp_socket.close()
@@ -77,4 +74,4 @@ class Client:
             None
 
 
-s = Client( 13117, "Yuri400")
+s = Client( 13117, "yuri4")

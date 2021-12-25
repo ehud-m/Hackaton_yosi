@@ -132,18 +132,12 @@ class Server():
             answer = connection.recv(1024).decode("utf-8")
             self.game_lock.acquire() #let only the first to response check if he won
             if self.game_status == NO_ANSWER_YET:
-                self.first_to_answear(stopper, answer, team_name)
+                self.first_to_answer(stopper, answer, team_name)
             else:
                 self.second_to_answer(team_name)
-
-            connection.send(bytes(
-                f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}! \n\n Congratulations for the winner: {self.winner}",
-                "UTF-8"))
+            connection.send(bytes(self.generate_winner_message(team_name), "UTF-8"))
         except socket.timeout: #means the game ended in a draw - no one have answered
-            connection.send(
-                bytes(
-                    f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}!\n\n Nobody won you losers!!!",
-                    "UTF-8"))
+            connection.send(bytes(self.generate_draw_message(team_name), "UTF-8"))
         connection.close()
 
     def set_name(self, team_name):
@@ -179,7 +173,7 @@ class Server():
                               f"Pleases answer the following question as fast as you can:\n"
                               f"How much is {self.equation}?", "UTF-8"))
 
-    def first_to_answear(self, stopper, answer, team_name):
+    def first_to_answer(self, stopper, answer, team_name):
         """
         :param stopper: stopper to calculate score
         :param answer: first team answer
@@ -218,5 +212,17 @@ class Server():
         self.game_lock.release()
         self.event_udp.set()
 
+    def generate_winner_message(self, team_name):
+        result = f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}! \n\n Congratulations for the winner: {self.winner}\n"
+        return result+self.generate_statistics(team_name)
+
+    def generate_statistics(self, team_name):
+        result = f"Your score until now: {self.score_dictionary[team_name]}"
+        result += f"\nThe GOAT (Greatest Of All Times) of the Equation Game is: {max(self.score_dictionary, key = lambda k: self.score_dictionary[k])}"
+        return result
+
+    def generate_draw_message(self, team_name):
+        result = f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}!\n\n Nobody won you losers!!!\n"
+        return result+self.generate_statistics(team_name)
 
 s = Server(HOST_IP, TCP_PORT)
