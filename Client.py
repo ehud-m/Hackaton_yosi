@@ -29,8 +29,8 @@ class Client:
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         magic_cookie, message_type, server_port = struct.unpack(">IbH",message)
         print(address[0])
-        self.tcp_socket.connect((socket.gethostbyname(socket.gethostname())d,server_port))
-        self.tcp_socket.send(f"{self.team_name}\n")
+        self.tcp_socket.connect(('127.0.0.1',server_port))
+        self.tcp_socket.send(b"dsgsdfg")
     #     self.play()
     #
     # def play(self):
