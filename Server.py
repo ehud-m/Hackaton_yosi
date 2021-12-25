@@ -109,15 +109,16 @@ class Server():
         self.game_lock.acquire()
         if self.got_answer_from_client == 0:
             self.score = 10 - (time.time() - stoper)
-            self.got_answer_from_client = name
+
             if answer == self.equation_answer:
+                self.got_answer_from_client = 1
                 self.score_dictionary[name] += self.score
                 self.winner = name
             else:
-                self.got_answer_from_client = 1
+                self.got_answer_from_client = 2 #means wrong answer
                 self.score_dictionary[name] += - self.score
                 self.winner = self.find_winner(name)
-        elif self.got_answer_from_client == 1:
+        elif self.got_answer_from_client == 2:
             self.score_dictionary[name] += self.score
         else:
             self.score_dictionary[name] += - self.score

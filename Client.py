@@ -38,4 +38,4 @@ class Client:
         print("Server disconnected, listening for offer requests...")
 
 
-s = Client(1, 13117, "Yuri")
+s = Client(1, 13117, "Yuri1")
