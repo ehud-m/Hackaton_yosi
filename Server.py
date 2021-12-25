@@ -1,6 +1,6 @@
 import struct
 from collections import Counter
-
+import colorama
 import scapy
 import socket
 import time
@@ -18,12 +18,13 @@ class Server():
     def __init__(self,ip_address,tcp_port,broadcast_port,destination_port=13117):
         self.ip = ip_address
         print(ip_address)
-        print(f"Server started, listening on IP address {self.ip}")
+        print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
         self.integer_lock = threading.Lock()
         self.game_lock = threading.Lock()
         self.event_udp = threading.Event()
         self.event_tcp = threading.Event()
         self.event_two_players = threading.Event()
+        self.event_reset_game = threading.Event()
         self.reset_game()
         self.score_dictionary = Counter()
         self.broadcast_port = broadcast_port
@@ -46,12 +47,12 @@ class Server():
         self.event_two_players.clear()
 
 
+
     def create_broadcast_socket(self):
         # self.bind()
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
         message = struct.pack(">IbH",0xabcddcba, 0x2, self.tcp_port)
         self.send_message(message)
 
@@ -63,7 +64,7 @@ class Server():
             if self.number_of_clients >= 2:
                 self.event_udp.wait()
                 self.reset_game()
-                print("Game over, sending out offer requests...")
+                print(f"{colorama.Fore.GREEN}Game over, sending out offer requests...")
 
     def create_tcp_listening_socket(self):
         self.tcp_listener = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -79,9 +80,7 @@ class Server():
                 self.integer_lock.release()
             else:
                 self.integer_lock.release()
-                connection.send(b"Sorry, a game is on...")
-                connection.send(b"go play some football")
-                connection.send(b"bye bye")
+                connection.send(bytes(f"{colorama.Fore.YELLOW}Sorry, a game is on...\ngo play some football\nbye bye","UTF-8"))
                 connection.close()
                 #self.event_tcp.wait() # C
 
@@ -90,7 +89,7 @@ class Server():
     def handle_client(self,connection):
         name = connection.recv(1024).decode("UTF-8")
         if name[-1]=="\n":
-            self.current_clients_names.append(name)
+            self.current_clients_names.append(name[0:-1])
         else:
             self.current_clients_names.append("Anonymous")
         self.integer_lock.acquire()
@@ -105,10 +104,10 @@ class Server():
         time.sleep(3)
         connection.settimeout(5)
         stoper = time.time()
-        connection.send(bytes(f"Welcome to Quick Maths.\n"
+        connection.send(bytes(f"{colorama.Fore.YELLOW}Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
                               f"Player2: {self.current_clients_names[1]}\n==\n"
-                              f"Pleases answer the following question as fast as ypu can:\n"
+                              f"Pleases answer the following question as fast as you can:\n"
                               f"How much is {self.equation}?","UTF-8"))
         try:
             answer=connection.recv(1024).decode("utf-8")
@@ -135,17 +134,20 @@ class Server():
                 self.game_lock.release()
                 self.event_two_players.set()
 
-            connection.send(bytes(f"Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
+            connection.send(bytes(f"{colorama.Fore.BLUE}Game over!\nThe correct answer was 4! \n\n Congratulations for the winner: {self.winner}","UTF-8"))
         except socket.timeout:
             connection.send(
-                bytes(f"Game over!\nThe correct answer was 4! \n\n Nobody won you losers!!!",
-                      "UTF-8"))
+                bytes(f"{colorama.Fore.BLUE}Game over!\nThe correct answer was 4! \n\n Nobody won you losers!!!", "UTF-8"))
         connection.close()
         self.event_udp.set()
+        self.event_reset_game.clear()
 
 
     def find_winner(self,name):
-        return [n for n in self.current_clients_names if not n == name][0]
+        winner = [n for n in self.current_clients_names if not n == name]
+        if len(winner) == 0:
+            return self.current_clients_names[0]
+        return winner[0]
 
 
 
