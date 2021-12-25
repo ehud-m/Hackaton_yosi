@@ -45,40 +45,41 @@ class Server():
     def send_message(self,message):
         while True:
             self.udp_socket.sendto(message, ('<broadcast>', self.destination_port))
-            # print("sent")
+            print("sent")
             time.sleep(1)
             if self.number_of_clients >= 2:
+                print("udp is  here")
                 self.event_udp.wait()
 
     def create_tcp_listening_socket(self):
         self.tcp_listener = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.tcp_listener.bind(('127.0.0.1',self.tcp_port))
+        self.tcp_listener.bind((self.ip,self.tcp_port))
         while True:
             self.tcp_listener.listen()
             connection, address = self.tcp_listener.accept() #should we accept him?
+            print("im here")
             self.lock.acquire()
             if self.number_of_clients < 2:
                 self.number_of_clients += 1
-                thread = threading.Thread(target=self.handle_client, args=(connection))
+                thread = threading.Thread(target=self.handle_client, args=(connection,))
                 thread.start()
                 self.lock.release()
             else:
                 self.lock.release()
-                connection.send("Sorry, a game is on...")
-                connection.send("go play some football")
-                connection.send("bye bye")
+                connection.send(b"Sorry, a game is on...")
+                connection.send(b"go play some football")
+                connection.send(b"bye bye")
                 connection.close()
-                self.event_tcp.wait()
-
+                #self.event_tcp.wait() # C
 
 
 
     def handle_client(self,connection):
-        print(connection.recv(1024))
+        print(connection.recv(1024).decode("UTF-8"))
 
 
 
-s = Server(socket.gethostbyname(socket.gethostname()),2500,broadcast_port=2000)
+s = Server("127.0.0.1",2500,broadcast_port=2000)
 
 
 
