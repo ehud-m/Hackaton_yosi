@@ -8,14 +8,20 @@ import threading
 
 from scapy.arch import get_if_addr
 
-Host = '192.168.0.1'
-port = 9376 #listening port
-
+HOST_IP= '127.0.0.1'
+BROADCAST_DESTINATION_PORT = 13117
+MAGIC_COOKIE_APPROVAL = 0xabcddcba
+MESSAGE_TYPE_APPROVAL = 0x2
+NUMBER_OF_CLIENTS_IN_GAME = 2
+MAXIMUM_MESSAGE_SIZE = 1024
+GAME_LENGTH = 10
+WAIT_FOR_GAME_LENGTH = 3
+NO_ANSWER_YET = 0
+FIRST_ANSWER_IS_RIGHT = 1
+FIRST_ANSWER_IS_WRONG = 2
 
 class Server():
-
-
-    def __init__(self,ip_address,tcp_port,broadcast_port,destination_port=13117):
+    def __init__(self,ip_address,tcp_port,broadcast_port,destination_port=BROADCAST_DESTINATION_PORT):
         self.ip = ip_address
         print(ip_address)
         print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
@@ -39,13 +45,12 @@ class Server():
     def reset_game(self):
         self.equation, self.equation_answer = self.equation_generator()
         self.current_clients_names = []
-        self.got_answer_from_client = 0
+        self.game_status = 0
         self.number_of_clients = 0
         self.score = 0
         self.winner = None
         self.event_udp.clear()
         self.event_two_players.clear()
-        self.players_ended_game=0
 
 
     def create_broadcast_socket(self):
@@ -53,15 +58,15 @@ class Server():
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        message = struct.pack(">IbH",0xabcddcba, 0x2, self.tcp_port)
+        message = struct.pack(">IbH",MAGIC_COOKIE_APPROVAL, MESSAGE_TYPE_APPROVAL, self.tcp_port)
         self.send_message(message)
 
 
     def send_message(self,message):
         while True:
             self.udp_socket.sendto(message, ('<broadcast>', self.destination_port))
-            time.sleep(1)
-            if self.number_of_clients >= 2:
+            #time.sleep(1)
+            if self.number_of_clients >= NUMBER_OF_CLIENTS_IN_GAME:
                 self.event_udp.wait()
                 self.reset_game()
                 print(f"{colorama.Fore.GREEN}Game over, sending out offer requests...")
@@ -73,7 +78,7 @@ class Server():
             self.tcp_listener.listen()
             connection, address = self.tcp_listener.accept() #should we accept him?
             self.integer_lock.acquire()
-            if self.number_of_clients < 2:
+            if self.number_of_clients < NUMBER_OF_CLIENTS_IN_GAME:
                 self.number_of_clients += 1
                 thread = threading.Thread(target=self.handle_client, args=(connection,))
                 thread.start()
@@ -87,7 +92,7 @@ class Server():
 
 
     def handle_client(self,connection):
-        name = connection.recv(1024).decode("UTF-8")
+        name = connection.recv(MAXIMUM_MESSAGE_SIZE).decode("UTF-8")
         if name[-1]=="\n":
             self.current_clients_names.append(name[0:-1])
         else:
@@ -101,8 +106,8 @@ class Server():
             self.event_two_players.set()
 
         #two players
-        time.sleep(3)
-        connection.settimeout(15)
+        time.sleep(WAIT_FOR_GAME_LENGTH)
+        connection.settimeout(GAME_LENGTH)
         stoper = time.time()
         connection.send(bytes(f"{colorama.Fore.YELLOW}Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
@@ -112,20 +117,19 @@ class Server():
         try:
             answer=connection.recv(1024).decode("utf-8")
             self.game_lock.acquire()
-            if self.got_answer_from_client == 0:
+            if self.game_status == NO_ANSWER_YET:
                 self.score = 10 - (time.time() - stoper)
-
                 if answer == self.equation_answer:
-                    self.got_answer_from_client = 1
+                    self.game_status = FIRST_ANSWER_IS_RIGHT
                     self.score_dictionary[name] += self.score
                     self.winner = name
                 else:
-                    self.got_answer_from_client = 2 #means wrong answer
+                    self.game_status = FIRST_ANSWER_IS_WRONG #means wrong answer
                     self.score_dictionary[name] += - self.score
                     self.winner = self.find_winner(name)
                 self.game_lock.release()
             else:
-                if self.got_answer_from_client == 2:
+                if self.game_status == FIRST_ANSWER_IS_WRONG:
                     self.score_dictionary[name] += self.score
                 else:
                     self.score_dictionary[name] += - self.score
@@ -146,12 +150,10 @@ class Server():
             return self.current_clients_names[0]
         return winner[0]
 
-
-
     def equation_generator(self):
         return "2+2","4"
 
-s = Server("127.0.0.1",2501,broadcast_port=2000)
+s = Server(HOST_IP,2501,broadcast_port=2000)
 
 
 
