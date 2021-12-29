@@ -109,4 +109,4 @@ class Client:
         #     pass
 
 
-Client(13117, "third", get_if_addr('eth1'))
+Client(13117, "yuri", get_if_addr('eth2'))

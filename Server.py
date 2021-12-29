@@ -10,7 +10,7 @@ import select
 from scapy.arch import get_if_addr
 import colorama
 
-HOST_IP = get_if_addr('eth1')  ##'127.0.0.1'
+HOST_IP = get_if_addr('eth2')  ##'127.0.0.1'
 BROADCAST_DESTINATION_PORT = 13117
 MAGIC_COOKIE_APPROVAL = 0xabcddcba
 MESSAGE_TYPE_APPROVAL = 0x2
@@ -21,7 +21,7 @@ WAIT_FOR_GAME_LENGTH = 10  # need to be 10
 NO_ANSWER_YET = 0
 FIRST_ANSWER_IS_RIGHT = 1
 FIRST_ANSWER_IS_WRONG = 2
-TCP_PORT = 25782
+TCP_PORT = 2071
 
 
 class Server():
