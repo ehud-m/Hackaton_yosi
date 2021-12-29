@@ -31,6 +31,7 @@ class Client:
             try:
                 self.create_udp_socket()  # if UDP listen failed, start broadcast again.
             except:
+                time.sleep(0.1)
                 print(f"{colorama.Fore.RED}Failed to connect.")
                 continue
 
@@ -78,12 +79,15 @@ class Client:
         equation gameplay
         """
         print(self.tcp_socket.recv(1024).decode("utf-8"))
+        self.tcp_socket.settimeout(11)
         # answer = keyboard.read_key()
         # answer = input()
         answer, _, _ = select.select([sys.stdin, self.tcp_socket], [], [], 10)
         if answer and type(answer[0]) != type(self.tcp_socket):
-            print("here")
+            # print("here")
             answer = sys.stdin.readline()[:-1]
+            if len(answer) == 0:
+                answer = 'a'
             self.tcp_socket.send(bytes(answer, "utf-8"))
             print(f"{self.team_name} answer is: {answer}")
         # if (answer[0]==getch.getch):
@@ -105,4 +109,4 @@ class Client:
         #     pass
 
 
-Client(13117, "ehs", get_if_addr('eth1'))
+Client(13117, "third", get_if_addr('eth1'))

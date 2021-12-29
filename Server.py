@@ -17,19 +17,19 @@ MESSAGE_TYPE_APPROVAL = 0x2
 NUMBER_OF_CLIENTS_IN_GAME = 2
 MAXIMUM_MESSAGE_SIZE = 1024
 GAME_LENGTH = 10
-WAIT_FOR_GAME_LENGTH = 8  # need to be 10
+WAIT_FOR_GAME_LENGTH = 10  # need to be 10
 NO_ANSWER_YET = 0
 FIRST_ANSWER_IS_RIGHT = 1
 FIRST_ANSWER_IS_WRONG = 2
-TCP_PORT = 2071
+TCP_PORT = 25782
 
 
 class Server():
     def __init__(self, ip_address, tcp_port, destination_port=BROADCAST_DESTINATION_PORT):
         self.ip = ip_address
         # print(ip_address)
-        # print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
-        print(f"Server started, listening on IP address {self.ip}")
+        print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
+        # print(f"Server started, listening on IP address {self.ip}")
         self.integer_lock = threading.Lock()  # lock for number_of_clients
         self.game_lock = threading.Lock()  # lock for recoginize the first player to answer
         self.event_udp = threading.Event()  # wait's untill game is over to broadcast again
@@ -90,7 +90,7 @@ class Server():
             self.udp_socket.sendto(message, (ip, self.destination_port))
             time.sleep(1)
             self.integer_lock.acquire()
-            print(f"sent message, current users: {self.number_of_clients}")
+            print(f"{colorama.Fore.GREEN}sent message, current users: {self.number_of_clients}")
             if self.number_of_clients >= NUMBER_OF_CLIENTS_IN_GAME:
                 self.integer_lock.release()
                 self.event_udp.wait()
@@ -150,6 +150,7 @@ class Server():
                 answer, _, _ = select.select([connection], [], [], 0.5)
                 if answer:
                     answer = connection.recv(1024).decode("utf-8")
+                    # print("here ans:" + answer)
                     self.game_lock.acquire()  # let only the first to response check if he won
                     if self.game_status == NO_ANSWER_YET:
                         self.first_to_answer(stopper, answer, team_name)
@@ -166,6 +167,7 @@ class Server():
                 connection.send(bytes(self.generate_draw_message(team_name), "UTF-8"))
         except Exception as e:
             print(f"{colorama.Fore.RED}problem occured:" + str(e))
+
         finally:
             self.integer_lock.acquire()
             self.number_of_clients -= 1
