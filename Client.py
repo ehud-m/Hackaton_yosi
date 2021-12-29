@@ -9,6 +9,8 @@ import select
 """Approve only messages that contains this values"""
 MAGIC_COOKIE_APPROVAL = 0xabcddcba
 MESSAGE_TYPE_APPROVAL = 0x2
+ETH = 'eth2'
+PORT = 2515
 
 
 class Client:
@@ -25,7 +27,6 @@ class Client:
         self.team_name = team_name
         self.udp_ip = '.'.join(udp_ip.split('.')[:2]) + ".255.255"
 
-        # print(f"Client started, listening for offer requests...")
         print(f"{colorama.Fore.GREEN}Client started, listening for offer requests...")
         while True:
             try:
@@ -46,9 +47,6 @@ class Client:
 
         while True:
             message, address = udp_socket.recvfrom(1024)
-            # if address[0]!=get_if_addr('eth1'):
-            #     continue
-            # print(f"Received offer from {address[0]},attempting to connect...")
 
             print(f"{colorama.Fore.GREEN}Received offer from {address[0]},attempting to connect...")
             magic_cookie, message_type, server_port = None, None, None
@@ -66,10 +64,8 @@ class Client:
         :param server_port: server listening port
         """
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.tcp_socket.connect((get_if_addr('eth1'), server_port))
 
         self.tcp_socket.connect((address[0], server_port))
-        # self.tcp_socket.connect(('172.1.0.71', server_port))
 
         self.tcp_socket.send(bytes(self.team_name + "\n", "utf-8"))
         self.play()
@@ -80,33 +76,21 @@ class Client:
         """
         print(self.tcp_socket.recv(1024).decode("utf-8"))
         self.tcp_socket.settimeout(11)
-        # answer = keyboard.read_key()
-        # answer = input()
+
         answer, _, _ = select.select([sys.stdin, self.tcp_socket], [], [], 10)
         if answer and type(answer[0]) != type(self.tcp_socket):
-            # print("here")
+
             answer = sys.stdin.readline()[:-1]
             if len(answer) == 0:
                 answer = 'a'
             self.tcp_socket.send(bytes(answer, "utf-8"))
             print(f"{self.team_name} answer is: {answer}")
-        # if (answer[0]==getch.getch):
-        #     answer = getch.getch()
-        #
 
-        # if len(answer > 0):
-
-        # self.tcp_socket.send(bytes(answer, "utf-8"))
-        # try:
         print(self.tcp_socket.recv(1024).decode("utf-8"))
-        # except:
-        # print(f"{colorama.Fore.RED}Server sends bad args, lets continue")
-        # print(f"Server disconnected, listening for offer requests...")
+
         print(f"{colorama.Fore.GREEN}Server disconnected, listening for offer requests...")
-        # try:
+
         self.tcp_socket.close()
-        # except:
-        #     pass
 
 
-Client(13117, "yuri", get_if_addr('eth2'))
+Client(PORT, "yuri2", get_if_addr(ETH))

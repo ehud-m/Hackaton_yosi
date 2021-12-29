@@ -11,7 +11,7 @@ from scapy.arch import get_if_addr
 import colorama
 
 HOST_IP = get_if_addr('eth2')  ##'127.0.0.1'
-BROADCAST_DESTINATION_PORT = 13117
+BROADCAST_DESTINATION_PORT = 2515
 MAGIC_COOKIE_APPROVAL = 0xabcddcba
 MESSAGE_TYPE_APPROVAL = 0x2
 NUMBER_OF_CLIENTS_IN_GAME = 2
@@ -21,15 +21,15 @@ WAIT_FOR_GAME_LENGTH = 10  # need to be 10
 NO_ANSWER_YET = 0
 FIRST_ANSWER_IS_RIGHT = 1
 FIRST_ANSWER_IS_WRONG = 2
-TCP_PORT = 2071
+TCP_PORT = 22678
 
 
 class Server():
     def __init__(self, ip_address, tcp_port, destination_port=BROADCAST_DESTINATION_PORT):
         self.ip = ip_address
-        # print(ip_address)
+
         print(f"{colorama.Fore.GREEN}Server started, listening on IP address {self.ip}")
-        # print(f"Server started, listening on IP address {self.ip}")
+
         self.integer_lock = threading.Lock()  # lock for number_of_clients
         self.game_lock = threading.Lock()  # lock for recoginize the first player to answer
         self.event_udp = threading.Event()  # wait's untill game is over to broadcast again
@@ -86,7 +86,7 @@ class Server():
         """
         ip = '.'.join(self.ip.split('.')[:2]) + '.255.255'
         while True:
-            # self.udp_socket.sendto(message, ('<broadcast>', self.destination_port))
+
             self.udp_socket.sendto(message, (ip, self.destination_port))
             time.sleep(1)
             self.integer_lock.acquire()
@@ -95,7 +95,7 @@ class Server():
                 self.integer_lock.release()
                 self.event_udp.wait()
                 self.reset_game()
-                # print(f"{colorama.Fore.GREEN}Game over, sending out offer requests...")
+
                 print(f"Game over, sending out offer requests...")
             else:
                 self.integer_lock.release()
@@ -111,11 +111,9 @@ class Server():
         self.tcp_listener.bind((self.ip, self.tcp_port))
         self.tcp_listener.listen()
         while True:
-            # print("server here 0")
+
             connection, address = self.tcp_listener.accept()  # should we accept him?
-            # if (not address[0] == self.ip):
-            #     continue
-            # print("server here 1" , address)
+
             self.integer_lock.acquire()
             if self.number_of_clients < NUMBER_OF_CLIENTS_IN_GAME:
                 self.run_client_thread(connection)
@@ -130,7 +128,7 @@ class Server():
 
     def send_reject_message(self, connection):
         self.integer_lock.release()
-        # connection.send(bytes(f"Sorry, a game is on...\ngo play some football\nbye bye", "UTF-8"))
+
         connection.send(bytes(f"{colorama.Fore.YELLOW}Sorry, a game is on...\ngo play some football\nbye bye", "UTF-8"))
         connection.close()
 
@@ -150,7 +148,6 @@ class Server():
                 answer, _, _ = select.select([connection], [], [], 0.5)
                 if answer:
                     answer = connection.recv(1024).decode("utf-8")
-                    # print("here ans:" + answer)
                     self.game_lock.acquire()  # let only the first to response check if he won
                     if self.game_status == NO_ANSWER_YET:
                         self.first_to_answer(stopper, answer, team_name)
@@ -207,8 +204,7 @@ class Server():
 
         # Number of players is now enough to play the game
         time.sleep(WAIT_FOR_GAME_LENGTH)
-        # connection.settimeout(GAME_LENGTH)
-        # connection.send(bytes(f"Welcome to Quick Maths.\n"
+
         connection.send(bytes(f"{colorama.Fore.YELLOW}Welcome to Quick Maths.\n"
                               f"Player1: {self.current_clients_names[0]}\n"
                               f"Player2: {self.current_clients_names[1]}\n==\n"
@@ -253,12 +249,10 @@ class Server():
         else:
             self.score_dictionary[team_name] += - self.score
         self.game_lock.release()
-        # self.event_udp.set() #wake up broadcast
         self.event_score_updater.set()  # means the second done updating his score
 
     def generate_winner_message(self, team_name):
         result = f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}! \n\n Congratulations for the winner: {self.winner}\n"
-        # result = f"Game over!\nThe correct answer was {self.equation_answer}! \n\n Congratulations for the winner: {self.winner}\n"
         return result + self.generate_statistics(team_name)
 
     def generate_statistics(self, team_name):
@@ -269,7 +263,6 @@ class Server():
         return result
 
     def generate_draw_message(self, team_name):
-        # result = f"Game over!\nThe correct answer was {self.equation_answer}!\n\n Nobody won you losers!!!\n"
         result = f"{colorama.Fore.BLUE}Game over!\nThe correct answer was {self.equation_answer}!\n\n Nobody won you losers!!!\n"
         return result + self.generate_statistics(team_name)
 
